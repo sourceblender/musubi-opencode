@@ -4,17 +4,19 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import plugin from "../plugin/index.js"
 
-test("injects a nonempty continuity block once and disposes the context hook", async () => {
+test("fetches continuity once, applies it to every model request, and disposes the hook", async () => {
   const directory = await mkdtemp(join(tmpdir(), "musubi-opencode-plugin-"))
   const bridge = join(directory, "bridge")
-  await writeFile(bridge, '#!/usr/bin/env node\nprocess.stdin.resume(); process.stdin.on("end", () => process.stdout.write(JSON.stringify({ok:true,text:"## Musubi continuity\\nRecent memory available."})))\n')
+  const calls = join(directory, "calls")
+  await writeFile(bridge, '#!/usr/bin/env node\nconst fs = require("node:fs"); process.stdin.resume(); process.stdin.on("end", () => { fs.appendFileSync(process.env.MUSUBI_TEST_BRIDGE_CALLS, "x"); process.stdout.write(JSON.stringify({ok:true,text:"## Musubi continuity\\nRecent memory available."})) })\n')
   await chmod(bridge, 0o755)
-  const old = Object.fromEntries(["MUSUBI_ACTOR", "MUSUBI_PRESENCE", "MUSUBI_ZONE", "MUSUBI_OPENCODE_BRIDGE_BIN"].map((key) => [key, process.env[key]]))
+  const old = Object.fromEntries(["MUSUBI_ACTOR", "MUSUBI_PRESENCE", "MUSUBI_ZONE", "MUSUBI_OPENCODE_BRIDGE_BIN", "MUSUBI_TEST_BRIDGE_CALLS"].map((key) => [key, process.env[key]]))
   Object.assign(process.env, {
     MUSUBI_ACTOR: "iris",
     MUSUBI_PRESENCE: "iris/agent",
     MUSUBI_ZONE: "home",
     MUSUBI_OPENCODE_BRIDGE_BIN: bridge,
+    MUSUBI_TEST_BRIDGE_CALLS: calls,
   })
   let contextHook
   let disposed = false
@@ -41,6 +43,10 @@ test("injects a nonempty continuity block once and disposes the context hook", a
     expect(request.system).toEqual([{ type: "text", text: "## Musubi continuity\nRecent memory available." }])
     await contextHook(request)
     expect(request.system).toHaveLength(1)
+    const laterRequest = { sessionID: "ses_primary", system: [] }
+    await contextHook(laterRequest)
+    expect(laterRequest.system).toEqual([{ type: "text", text: "## Musubi continuity\nRecent memory available." }])
+    expect(await Bun.file(calls).text()).toBe("x")
     cleanup()
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(disposed).toBe(true)

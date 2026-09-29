@@ -36,26 +36,35 @@ export default Plugin.define({
       editor.set("musubi", { type: "local", command: [mcpBinary] })
     })
 
-    const continuitySeen = new Set()
+    const continuityCache = new Map()
     const continuityHookSeen = new Set()
     const contextHook = await ctx.session.hook("context", async (event) => {
       if (!continuityHookSeen.has(event.sessionID)) {
         continuityHookSeen.add(event.sessionID)
         console.info("musubi-opencode continuity context hook", JSON.stringify({ session_id: event.sessionID }))
       }
-      if (continuitySeen.has(event.sessionID)) return
+      let cached = continuityCache.get(event.sessionID)
+      if (!cached) {
+        cached = (async () => {
+          const session = await ctx.session.get({ sessionID: event.sessionID })
+          if (session.parentID) return null
+          const result = await bridge({ action: "continuity" })
+          if (!result.ok || typeof result.text !== "string" || !result.text.trim()) {
+            throw new Error(result.detail || "empty_block")
+          }
+          return result.text
+        })()
+        continuityCache.set(event.sessionID, cached)
+      }
       try {
-        const session = await ctx.session.get({ sessionID: event.sessionID })
-        if (session.parentID) return
-        const result = await bridge({ action: "continuity" })
-        if (result.ok && typeof result.text === "string" && result.text.trim()) {
-          event.system.push({ type: "text", text: result.text })
-          continuitySeen.add(event.sessionID)
-          console.info("musubi-opencode continuity injected", JSON.stringify({ session_id: event.sessionID, chars: result.text.length }))
-        } else {
-          console.error("musubi-opencode continuity unavailable", result.detail || "empty_block")
+        const text = await cached
+        if (!text) return
+        if (!event.system.some((part) => part.type === "text" && part.text === text)) {
+          event.system.push({ type: "text", text })
         }
+        console.info("musubi-opencode continuity injected", JSON.stringify({ session_id: event.sessionID, chars: text.length }))
       } catch (error) {
+        continuityCache.delete(event.sessionID)
         console.error("musubi-opencode continuity unavailable", String(error).slice(0, 200))
       }
     })
@@ -93,6 +102,7 @@ export default Plugin.define({
     })()
     return () => {
       controller.abort()
+      continuityCache.clear()
       void contextHook.dispose().catch((error) => {
         console.error("musubi-opencode continuity hook disposal failed", String(error).slice(0, 200))
       })
