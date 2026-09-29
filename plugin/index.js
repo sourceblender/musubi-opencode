@@ -37,17 +37,23 @@ export default Plugin.define({
     })
 
     const continuitySeen = new Set()
-    await ctx.session.hook("context", async (event) => {
+    const continuityHookSeen = new Set()
+    const contextHook = await ctx.session.hook("context", async (event) => {
+      if (!continuityHookSeen.has(event.sessionID)) {
+        continuityHookSeen.add(event.sessionID)
+        console.info("musubi-opencode continuity context hook", JSON.stringify({ session_id: event.sessionID }))
+      }
       if (continuitySeen.has(event.sessionID)) return
       try {
         const session = await ctx.session.get({ sessionID: event.sessionID })
         if (session.parentID) return
         const result = await bridge({ action: "continuity" })
-        if (result.ok && typeof result.text === "string") {
+        if (result.ok && typeof result.text === "string" && result.text.trim()) {
           event.system.push({ type: "text", text: result.text })
           continuitySeen.add(event.sessionID)
+          console.info("musubi-opencode continuity injected", JSON.stringify({ session_id: event.sessionID, chars: result.text.length }))
         } else {
-          console.error("musubi-opencode continuity unavailable", result.detail || "unknown")
+          console.error("musubi-opencode continuity unavailable", result.detail || "empty_block")
         }
       } catch (error) {
         console.error("musubi-opencode continuity unavailable", String(error).slice(0, 200))
@@ -85,6 +91,11 @@ export default Plugin.define({
         if (!controller.signal.aborted) console.error("musubi-opencode events unavailable", String(error).slice(0, 200))
       }
     })()
-    return () => controller.abort()
+    return () => {
+      controller.abort()
+      void contextHook.dispose().catch((error) => {
+        console.error("musubi-opencode continuity hook disposal failed", String(error).slice(0, 200))
+      })
+    }
   },
 })

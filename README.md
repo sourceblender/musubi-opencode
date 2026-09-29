@@ -88,6 +88,12 @@ commands, set `MUSUBI_OPENCODE_BRIDGE_BIN` and
    foreign actor namespace and confirm the tool refuses it. Read
    `~/.local/state/musubi-opencode/degraded.jsonl` if any step fails.
 
+The local OpenCode log records one `continuity context hook` line and one
+`continuity injected` line with a character count per primary session. It
+does not log memory contents. Those lines prove the adapter reached and
+mutated the hook, but only a model-side or outgoing-request check proves the
+provider received the block.
+
 ## Development
 
 ```sh
