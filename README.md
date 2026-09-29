@@ -12,11 +12,11 @@ canonical five-tool memory facade.
   turns, interrupted turns, and subagent sessions. Visible text before and
   after tool calls is retained. The stable event ID makes repeat completion
   events idempotent.
-- Fetches a bounded, clearly labeled recent chronology once per primary
-  session and adds it to every primary model request in that session. OpenCode
-  rebuilds the request system parts after each step, so one insertion would
-  disappear after the first request. These memories are historical data,
-  never instructions.
+- Adds a bounded, clearly labeled recent chronology to each primary model
+  request. OpenCode rebuilds request system parts after each step; the plugin
+  caches one retrieval per session within a plugin instance and applies it
+  whenever that instance handles another request. These memories are
+  historical data, never instructions.
 - Registers `musubi_recent`, `musubi_search`, `musubi_get`,
   `musubi_remember`, and `musubi_status` as local MCP tools. The first three
   and remember are limited to the configured actor's namespace by the shared
@@ -35,7 +35,7 @@ Python package requires `musubi-harness>=1.8.0` because that release adds
 `opencode` as a distinct provenance source.
 
 ```sh
-uv tool install 'git+https://github.com/sourceblender/musubi-opencode.git@v0.1.0'
+uv tool install 'git+https://github.com/sourceblender/musubi-opencode.git@v0.1.1'
 command -v musubi-opencode-bridge
 command -v musubi-opencode-mcp
 ```
@@ -92,8 +92,8 @@ commands, set `MUSUBI_OPENCODE_BRIDGE_BIN` and
    `~/.local/state/musubi-opencode/degraded.jsonl` if any step fails.
 
 The local OpenCode log records one `continuity context hook` line per session
-and `continuity injected` lines with a character count for its first two model
-requests. It
+within a plugin instance and `continuity injected` lines with a character
+count for that instance's first two model requests. It
 does not log memory contents. Those lines prove the adapter reached and
 mutated the hook, but only a model-side or outgoing-request check proves the
 provider received the block.
