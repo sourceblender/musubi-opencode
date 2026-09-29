@@ -25,9 +25,7 @@ def _degraded(reason: str) -> None:
         root = runtime.data_root()
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         with (root / "degraded.jsonl").open("a", encoding="utf-8") as handle:
-            handle.write(
-                json.dumps({"at": datetime.now(UTC).isoformat(), "reason": reason}) + "\n"
-            )
+            handle.write(json.dumps({"at": datetime.now(UTC).isoformat(), "reason": reason}) + "\n")
     except OSError:
         pass
 
@@ -152,7 +150,11 @@ def main() -> int:
             raise AdapterError("request_invalid")
         response = handle(request)
     except (
-        AdapterError, RuntimeConfigError, ValueError, OSError, subprocess.SubprocessError
+        AdapterError,
+        RuntimeConfigError,
+        ValueError,
+        OSError,
+        subprocess.SubprocessError,
     ) as exc:
         reason = (
             str(exc)
