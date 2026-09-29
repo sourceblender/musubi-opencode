@@ -1,0 +1,17 @@
+{
+  "name": "musubi-opencode",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "description": "OpenCode v2 plugin binding for Musubi",
+  "exports": {
+    ".": "./index.js"
+  },
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@opencode/plugin": "2.0.18"
+  }
+}
