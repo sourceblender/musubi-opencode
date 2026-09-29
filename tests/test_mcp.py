@@ -14,7 +14,11 @@ def test_mcp_lists_tools_without_seat_token(monkeypatch):
     response = json.loads(output.getvalue())
     names = {tool["name"] for tool in response["result"]["tools"]}
     assert names == {
-        "musubi_recent", "musubi_search", "musubi_get", "musubi_remember", "musubi_status"
+        "musubi_recent",
+        "musubi_search",
+        "musubi_get",
+        "musubi_remember",
+        "musubi_status",
     }
 
 
@@ -26,7 +30,9 @@ def test_mcp_call_without_identity_reports_unavailable(monkeypatch):
         [
             json.dumps(
                 {
-                    "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
                     "params": {"name": "musubi_status", "arguments": {}},
                 }
             )
