@@ -9,11 +9,12 @@ const final = {
   content: [{ type: "reasoning", text: "private" }, { type: "text", text: "The code changed." }],
 }
 
-test("captures only the completed final text", () => {
-  expect(completedTurn(session, [user, { type: "assistant", finish: "tool-calls" }, final, { type: "idle", outcome: "succeeded" }]))
+test("captures visible text across tool calls after a completed turn", () => {
+  const beforeTool = { type: "assistant", finish: "tool-calls", content: [{ type: "text", text: "I will check." }, { type: "tool", name: "read" }] }
+  expect(completedTurn(session, [user, beforeTool, final, { type: "idle", outcome: "succeeded" }]))
     .toEqual({
       session_id: "ses_main", user_id: "msg_user", user_text: "What changed?",
-      assistant_text: "The code changed.", completed_at: 3,
+      assistant_text: "I will check.\n\nThe code changed.", completed_at: 3,
       model: "qwen-lan/qwen3.8-flash-next",
     })
 })

@@ -28,6 +28,9 @@ function bridge(request) {
 export default Plugin.define({
   id: "musubi-opencode",
   async setup(ctx) {
+    if (!process.env.MUSUBI_ACTOR || !process.env.MUSUBI_PRESENCE || !process.env.MUSUBI_ZONE) {
+      console.error("musubi-opencode unavailable: seat identity is missing; launch OpenCode with --standalone from the seat launcher")
+    }
     const mcpBinary = process.env.MUSUBI_OPENCODE_MCP_BIN || "musubi-opencode-mcp"
     await ctx.mcp.transform((editor) => {
       editor.set("musubi", { type: "local", command: [mcpBinary] })
