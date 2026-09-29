@@ -3,6 +3,7 @@ import { Plugin } from "@opencode/plugin"
 import { completedTurn } from "./turn.js"
 
 const BRIDGE_TIMEOUT_MS = 28_000
+const MAX_CONTINUITY_SESSIONS = 200
 
 function bridge(request) {
   const binary = process.env.MUSUBI_OPENCODE_BRIDGE_BIN || "musubi-opencode-bridge"
@@ -38,6 +39,7 @@ export default Plugin.define({
 
     const continuityCache = new Map()
     const continuityHookSeen = new Set()
+    const continuityAppliedCount = new Map()
     const contextHook = await ctx.session.hook("context", async (event) => {
       if (!continuityHookSeen.has(event.sessionID)) {
         continuityHookSeen.add(event.sessionID)
@@ -55,6 +57,12 @@ export default Plugin.define({
           return result.text
         })()
         continuityCache.set(event.sessionID, cached)
+        while (continuityCache.size > MAX_CONTINUITY_SESSIONS) {
+          const oldest = continuityCache.keys().next().value
+          continuityCache.delete(oldest)
+          continuityHookSeen.delete(oldest)
+          continuityAppliedCount.delete(oldest)
+        }
       }
       try {
         const text = await cached
@@ -62,7 +70,11 @@ export default Plugin.define({
         if (!event.system.some((part) => part.type === "text" && part.text === text)) {
           event.system.push({ type: "text", text })
         }
-        console.info("musubi-opencode continuity injected", JSON.stringify({ session_id: event.sessionID, chars: text.length }))
+        const applied = (continuityAppliedCount.get(event.sessionID) || 0) + 1
+        continuityAppliedCount.set(event.sessionID, applied)
+        if (applied <= 2) {
+          console.info("musubi-opencode continuity injected", JSON.stringify({ session_id: event.sessionID, chars: text.length, request: applied }))
+        }
       } catch (error) {
         continuityCache.delete(event.sessionID)
         console.error("musubi-opencode continuity unavailable", String(error).slice(0, 200))
@@ -103,6 +115,8 @@ export default Plugin.define({
     return () => {
       controller.abort()
       continuityCache.clear()
+      continuityHookSeen.clear()
+      continuityAppliedCount.clear()
       void contextHook.dispose().catch((error) => {
         console.error("musubi-opencode continuity hook disposal failed", String(error).slice(0, 200))
       })

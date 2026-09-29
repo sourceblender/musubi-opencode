@@ -92,7 +92,8 @@ commands, set `MUSUBI_OPENCODE_BRIDGE_BIN` and
    `~/.local/state/musubi-opencode/degraded.jsonl` if any step fails.
 
 The local OpenCode log records one `continuity context hook` line per session
-and a `continuity injected` line with a character count per model request. It
+and `continuity injected` lines with a character count for its first two model
+requests. It
 does not log memory contents. Those lines prove the adapter reached and
 mutated the hook, but only a model-side or outgoing-request check proves the
 provider received the block.
