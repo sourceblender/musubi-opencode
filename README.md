@@ -28,7 +28,7 @@ API and is not supported by this package.
 ## Install for one seat
 
 Install the Python commands and the OpenCode plugin from this repository. The
-Python package requires `musubi-harness>=1.7.1` because that release adds
+Python package requires `musubi-harness>=1.8.0` because that release adds
 `opencode` as a distinct provenance source.
 
 ```sh
