@@ -12,8 +12,11 @@ canonical five-tool memory facade.
   turns, interrupted turns, and subagent sessions. Visible text before and
   after tool calls is retained. The stable event ID makes repeat completion
   events idempotent.
-- Injects a bounded, clearly labeled recent chronology once per primary
-  session. These memories are historical data, never instructions.
+- Fetches a bounded, clearly labeled recent chronology once per primary
+  session and adds it to every primary model request in that session. OpenCode
+  rebuilds the request system parts after each step, so one insertion would
+  disappear after the first request. These memories are historical data,
+  never instructions.
 - Registers `musubi_recent`, `musubi_search`, `musubi_get`,
   `musubi_remember`, and `musubi_status` as local MCP tools. The first three
   and remember are limited to the configured actor's namespace by the shared
@@ -87,6 +90,13 @@ commands, set `MUSUBI_OPENCODE_BRIDGE_BIN` and
 5. Exercise `musubi_recent` and `musubi_get` in the owned namespace. Try a
    foreign actor namespace and confirm the tool refuses it. Read
    `~/.local/state/musubi-opencode/degraded.jsonl` if any step fails.
+
+The local OpenCode log records one `continuity context hook` line per session
+and `continuity injected` lines with a character count for its first two model
+requests. It
+does not log memory contents. Those lines prove the adapter reached and
+mutated the hook, but only a model-side or outgoing-request check proves the
+provider received the block.
 
 ## Development
 

@@ -3,6 +3,7 @@ import { Plugin } from "@opencode/plugin"
 import { completedTurn } from "./turn.js"
 
 const BRIDGE_TIMEOUT_MS = 28_000
+const MAX_CONTINUITY_SESSIONS = 200
 
 function bridge(request) {
   const binary = process.env.MUSUBI_OPENCODE_BRIDGE_BIN || "musubi-opencode-bridge"
@@ -36,20 +37,46 @@ export default Plugin.define({
       editor.set("musubi", { type: "local", command: [mcpBinary] })
     })
 
-    const continuitySeen = new Set()
-    await ctx.session.hook("context", async (event) => {
-      if (continuitySeen.has(event.sessionID)) return
+    const continuityCache = new Map()
+    const continuityHookSeen = new Set()
+    const continuityAppliedCount = new Map()
+    const contextHook = await ctx.session.hook("context", async (event) => {
+      let cached = continuityCache.get(event.sessionID)
+      if (!cached) {
+        cached = (async () => {
+          const session = await ctx.session.get({ sessionID: event.sessionID })
+          if (session.parentID) return null
+          const result = await bridge({ action: "continuity" })
+          if (!result.ok || typeof result.text !== "string" || !result.text.trim()) {
+            throw new Error(result.detail || "empty_block")
+          }
+          return result.text
+        })()
+        continuityCache.set(event.sessionID, cached)
+        while (continuityCache.size > MAX_CONTINUITY_SESSIONS) {
+          const oldest = continuityCache.keys().next().value
+          continuityCache.delete(oldest)
+          continuityHookSeen.delete(oldest)
+          continuityAppliedCount.delete(oldest)
+        }
+      }
       try {
-        const session = await ctx.session.get({ sessionID: event.sessionID })
-        if (session.parentID) return
-        const result = await bridge({ action: "continuity" })
-        if (result.ok && typeof result.text === "string") {
-          event.system.push({ type: "text", text: result.text })
-          continuitySeen.add(event.sessionID)
-        } else {
-          console.error("musubi-opencode continuity unavailable", result.detail || "unknown")
+        const text = await cached
+        if (!text) return
+        if (!continuityHookSeen.has(event.sessionID)) {
+          continuityHookSeen.add(event.sessionID)
+          console.info("musubi-opencode continuity context hook", JSON.stringify({ session_id: event.sessionID }))
+        }
+        if (!event.system.some((part) => part.type === "text" && part.text === text)) {
+          event.system.push({ type: "text", text })
+        }
+        const applied = (continuityAppliedCount.get(event.sessionID) || 0) + 1
+        continuityAppliedCount.set(event.sessionID, applied)
+        if (applied <= 2) {
+          console.info("musubi-opencode continuity injected", JSON.stringify({ session_id: event.sessionID, chars: text.length, request: applied }))
         }
       } catch (error) {
+        continuityCache.delete(event.sessionID)
         console.error("musubi-opencode continuity unavailable", String(error).slice(0, 200))
       }
     })
@@ -85,6 +112,14 @@ export default Plugin.define({
         if (!controller.signal.aborted) console.error("musubi-opencode events unavailable", String(error).slice(0, 200))
       }
     })()
-    return () => controller.abort()
+    return async () => {
+      controller.abort()
+      continuityCache.clear()
+      continuityHookSeen.clear()
+      continuityAppliedCount.clear()
+      await contextHook.dispose().catch((error) => {
+        console.error("musubi-opencode continuity hook disposal failed", String(error).slice(0, 200))
+      })
+    }
   },
 })
