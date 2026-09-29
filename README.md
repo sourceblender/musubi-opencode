@@ -9,8 +9,9 @@ canonical five-tool memory facade.
 
 - Captures a completed **primary** OpenCode user/assistant turn after
   `session.execution.succeeded`. It excludes reasoning, tool outputs, system messages, failed
-  turns, interrupted turns, and subagent sessions. The stable event ID makes
-  repeat idle events idempotent.
+  turns, interrupted turns, and subagent sessions. Visible text before and
+  after tool calls is retained. The stable event ID makes repeat completion
+  events idempotent.
 - Injects a bounded, clearly labeled recent chronology once per primary
   session. These memories are historical data, never instructions.
 - Registers `musubi_recent`, `musubi_search`, `musubi_get`,
@@ -36,9 +37,12 @@ command -v musubi-opencode-bridge
 command -v musubi-opencode-mcp
 ```
 
-Add the plugin **only to that seat's** `opencode.json` (the example assumes the
-repository was cloned at the shown path). Then restart that seat's OpenCode
-service; a background service keeps the environment from its own launch.
+Add the plugin **only to that seat's project-local** `opencode.json` (the
+example assumes the repository was cloned at the shown path). Do not add it to
+the shared `~/.config/opencode/opencode.json`. Launch the seat with
+`opencode --standalone`: the default TUI connects to a shared background
+service whose environment does not contain this seat's token or identity.
+Restart the seat after the project config and launcher are in place.
 
 ```json
 {
@@ -62,7 +66,7 @@ The `MUSUBI_*` identity triple is all-or-nothing. The adapter refuses a
 missing or mismatched identity. The JWT's unverified presence and write-scope
 claims are checked locally before a remote request; the Musubi server remains
 the authority for validity. Local enqueue subprocesses receive no endpoint or
-token. For an OpenCode service whose `PATH` does not expose the two Python
+token. For an OpenCode process whose `PATH` does not expose the two Python
 commands, set `MUSUBI_OPENCODE_BRIDGE_BIN` and
 `MUSUBI_OPENCODE_MCP_BIN` to their absolute paths in the launcher.
 

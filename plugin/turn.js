@@ -24,8 +24,10 @@ export function completedTurn(session, messages) {
       !item.error && Number.isFinite(item.time?.completed),
   )
   if (!assistant) return null
-  const assistantText = assistant.content
-    ?.filter((part) => part?.type === "text" && typeof part.text === "string")
+  const assistantText = suffix
+    .filter((item) => item?.type === "assistant" && !item.error)
+    .flatMap((item) => item.content || [])
+    .filter((part) => part?.type === "text" && typeof part.text === "string")
     .map((part) => part.text.trim())
     .filter(Boolean)
     .join("\n\n")
